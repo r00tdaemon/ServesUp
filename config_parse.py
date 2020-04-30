@@ -6,6 +6,8 @@ class Config:
     def __init__(self, file_path):
         with open(file_path, "r") as file:
             self._conf = json.load(file)
+
+        self._port = self._conf.get("port")
         self._routes = self._conf.get("routes")
         self._handlers = [
             (
@@ -16,10 +18,13 @@ class Config:
         ]
 
     @property
+    def port(self):
+        return self._port
+
+    @property
     def routes(self):
         return self._routes
 
     @property
     def handlers(self):
-        # [(r"/", MainHandler, dict(conf={"body": "adsasdasd"})),]
         return self._handlers
