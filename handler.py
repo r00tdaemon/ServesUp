@@ -1,10 +1,15 @@
+import inspect
+import importlib
 from typing import (
     Dict,
     Union,
 )
+
 import tornado.web
 from tornado import httputil
 from tornado.log import access_log
+
+from plugins.base import Plugin
 
 
 class CustomHandler(tornado.web.RequestHandler):
@@ -16,6 +21,17 @@ class CustomHandler(tornado.web.RequestHandler):
             if method in resp.get("methods"):
                 return resp
         return None
+
+    def _get_resp_body(self, resp: Dict):
+        if resp.get("response_type") == "script":
+            plug_module = importlib.import_module(f"plugins.{resp.get('script')}")
+            _, plug = inspect.getmembers(
+                plug_module,
+                lambda x: inspect.isclass(x) and not inspect.isabstract(x) and issubclass(x, Plugin)
+            )[0]
+            return plug().response()
+        elif resp.get("response_type") == "static":
+            return resp.get("body")
 
     @staticmethod
     def _format_request(req: httputil.HTTPServerRequest) -> str:
@@ -33,6 +49,7 @@ class CustomHandler(tornado.web.RequestHandler):
         log = f"\n----- Response -----\n"
         for k, v in sorted(resp.get("headers").items()):
             log += f"{k}: {v}\n"
+        # TODO: Log for script responses.
         log += f"\n{resp.get('body')}\n"
         log += f"----- End -----\n"
         return log
@@ -52,7 +69,7 @@ class CustomHandler(tornado.web.RequestHandler):
         for k, v in resp.get("headers").items():
             self.set_header(k, v)
         self.log_req_resp(self.request, resp)
-        self.finish(resp.get("body"))
+        self.finish(self._get_resp_body(resp))
 
     def get(self):
         self._handle_req()
