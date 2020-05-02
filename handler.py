@@ -45,9 +45,9 @@ class CustomHandler(tornado.web.RequestHandler):
         return log
 
     @staticmethod
-    def _format_response(resp: Dict) -> str:
+    def _format_response(resp) -> str:
         log = f"\n----- Response -----\n"
-        for k, v in sorted(resp.get("headers", {}).items()):
+        for k, v in sorted(resp.get("headers")):
             log += f"{k}: {v}\n"
         # TODO: Log for script responses.
         log += f"\n{resp.get('body')}\n"
@@ -66,10 +66,13 @@ class CustomHandler(tornado.web.RequestHandler):
             self.log_req_resp(self.request, None)
             raise tornado.web.HTTPError(405)
 
-        for k, v in resp.get("headers", {}).items():
+        headers = resp.get("headers", {}).items()
+        for k, v in headers:
             self.set_header(k, v)
-        self.log_req_resp(self.request, resp)
-        self.finish(self._get_resp_body(resp))
+
+        body = self._get_resp_body(resp)
+        self.log_req_resp(self.request, dict(headers=headers, body=body))
+        self.finish(body)
 
     def get(self):
         self._handle_req()
