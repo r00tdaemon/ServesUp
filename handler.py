@@ -29,7 +29,7 @@ class CustomHandler(tornado.web.RequestHandler):
                 plug_module,
                 lambda x: inspect.isclass(x) and not inspect.isabstract(x) and issubclass(x, Plugin)
             )[0]
-            return plug().response()
+            return plug().response(self.request)
         elif resp.get("response_type") == "static":
             return resp.get("body")
 
@@ -47,7 +47,7 @@ class CustomHandler(tornado.web.RequestHandler):
     @staticmethod
     def _format_response(resp: Dict) -> str:
         log = f"\n----- Response -----\n"
-        for k, v in sorted(resp.get("headers").items()):
+        for k, v in sorted(resp.get("headers", {}).items()):
             log += f"{k}: {v}\n"
         # TODO: Log for script responses.
         log += f"\n{resp.get('body')}\n"
@@ -66,7 +66,7 @@ class CustomHandler(tornado.web.RequestHandler):
             self.log_req_resp(self.request, None)
             raise tornado.web.HTTPError(405)
 
-        for k, v in resp.get("headers").items():
+        for k, v in resp.get("headers", {}).items():
             self.set_header(k, v)
         self.log_req_resp(self.request, resp)
         self.finish(self._get_resp_body(resp))
