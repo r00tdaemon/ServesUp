@@ -26,16 +26,16 @@ To configure the tool copy `conf.json.example` to `conf.json`.
     - `body` - The response body for given route. Used if `"response_type` is "static"
     - `methods` - HTTP methods for which this response should be sent.
     - `response_type` - How to generate the response. Can be "static" or "script"
-    - `script` - Name of python module from which to generate the response. Used if `"response_type` is "script"
+    - `script` - Name of python module from which to generate the response. Used if `"response_type` is "script". User can provide either a default plugin(`customresp`), a relative path to python script or an absolute path to the script.
     
 To run - `python3 server.py`
      
 ### Plugins
-Users can create their own plugins which will allow them to generate dynamic responses based on the requests received. All the plugins reside in the `plugins` directory.
+Users can create their own plugins which will allow them to generate dynamic responses based on the requests received.
 
 To create a plugin you need to import the base plugin class and override its abstract method.  
 ```python
-from plugins.base import Plugin
+from simserve.plugins.base import Plugin
 
 class MyResponse(Plugin):
     def response(self, request):

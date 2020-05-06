@@ -1,5 +1,8 @@
+import os
+import sys
 import inspect
 import importlib
+import importlib.util
 from typing import (
     Dict,
     Union,
@@ -22,9 +25,41 @@ class CustomHandler(tornado.web.RequestHandler):
                 return resp
         return None
 
+    @staticmethod
+    def _load_script(path: str):
+        if importlib.util.find_spec(f"simserve.plugins.{os.path.splitext(os.path.basename(path))[0]}"):
+            return importlib.import_module(f"simserve.plugins.{path}")
+        elif os.path.isfile(f"{os.getcwd()}/{path}.py") or os.path.isfile(f"{os.getcwd()}/{path}"):
+            path = f"{os.getcwd()}/{path}"
+            path = f"{path}.py" if os.path.isfile(f"{path}.py") else f"{path}"
+            module_name = f"__simserve_plugin__.{os.path.splitext(os.path.basename(path))[0]}"
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, path)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+            except Exception as e:
+                access_log.error(f"Could not load plugin. {e}")
+                raise tornado.web.HTTPError(500)
+            return module
+        elif os.path.isfile(path):
+            module_name = f"__simserve_plugin__.{os.path.splitext(os.path.basename(path))[0]}"
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, path)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+            except Exception as e:
+                access_log.error(f"Could not load plugin. {e}")
+                raise tornado.web.HTTPError(500)
+            return module
+        else:
+            access_log.error("Couldn't find plugin to load.")
+            raise tornado.web.HTTPError(500)
+
     def _get_resp_body(self, resp: Dict):
         if resp.get("response_type") == "script":
-            plug_module = importlib.import_module(f"simserve.plugins.{resp.get('script')}")
+            plug_module = self._load_script(resp.get('script'))
             _, plug = inspect.getmembers(
                 plug_module,
                 lambda x: inspect.isclass(x) and not inspect.isabstract(x) and issubclass(x, Plugin)
@@ -49,7 +84,6 @@ class CustomHandler(tornado.web.RequestHandler):
         log = f"\n----- Response -----\n"
         for k, v in sorted(resp.get("headers")):
             log += f"{k}: {v}\n"
-        # TODO: Log for script responses.
         log += f"\n{resp.get('body')}\n"
         log += f"----- End -----\n"
         return log
