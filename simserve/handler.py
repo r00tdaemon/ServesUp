@@ -9,7 +9,7 @@ import tornado.web
 from tornado import httputil
 from tornado.log import access_log
 
-from plugins.base import Plugin
+from simserve.plugins.base import Plugin
 
 
 class CustomHandler(tornado.web.RequestHandler):
@@ -24,7 +24,7 @@ class CustomHandler(tornado.web.RequestHandler):
 
     def _get_resp_body(self, resp: Dict):
         if resp.get("response_type") == "script":
-            plug_module = importlib.import_module(f"plugins.{resp.get('script')}")
+            plug_module = importlib.import_module(f"simserve.plugins.{resp.get('script')}")
             _, plug = inspect.getmembers(
                 plug_module,
                 lambda x: inspect.isclass(x) and not inspect.isabstract(x) and issubclass(x, Plugin)
