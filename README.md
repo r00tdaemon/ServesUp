@@ -1,5 +1,5 @@
 # Simserve
-Simserve is a server simulator which can be used to simulate server interactions of a program (malware). It is highly configurable as users can configure it to produce valid http responses for given set of requests.
+Simserve is a server simulator which can be used to simulate server interactions of a program. It is highly configurable as users can configure it to produce valid http responses for given set of requests.
 
 ## Files
 * `config_parse.py` - Parse the config.json file using the Config class. Also,
@@ -9,10 +9,16 @@ Simserve is a server simulator which can be used to simulate server interactions
                  request-response pair.
 * `server.py` - Main file to start the server.
 
-* `plugins.base` - The base plugin class used to for dynamic responses. For on this below.
+* `plugins.base` - The base plugin class used to for dynamic responses. More on this below.
 
 ## Installation and Usage
 *This tool is written in **python 3.6***  
+Clone the repository.  
+```
+git clone https://github.com/ujjwal96/simserve.git
+cd simserve
+```
+
 To install dependencies run -  
 `pip install -r requirements.txt`
 
@@ -28,7 +34,10 @@ To configure the tool copy `conf.json.example` to `conf.json`.
     - `response_type` - How to generate the response. Can be "static" or "script"
     - `script` - Name of python module from which to generate the response. Used if `"response_type` is "script". User can provide either a default plugin(`customresp`), a relative path to python script or an absolute path to the script.
     
-To run - `python3 server.py`
+To run - `simserve`  
+By default it looks for config file in current working dir.
+To specify path to config file pass `-c` flag.  
+`simserve -c <path to conf.json>`
      
 ### Plugins
 Users can create their own plugins which will allow them to generate dynamic responses based on the requests received.
@@ -44,6 +53,5 @@ class MyResponse(Plugin):
 The `customresp.py` serves as a simple example of a plugin.
 
 ## Future Improvements
-* Allow specifying file path for config file.
 * Option to log request and responses to a file.
 * Create a GUI for the tool.
