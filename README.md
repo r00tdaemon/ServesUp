@@ -1,5 +1,5 @@
-# Simserve
-Simserve is a server simulator which can be used to simulate server interactions of a program. It is highly configurable as users can configure it to produce valid http responses for given set of requests.
+# ServesUp
+ServesUp is a server simulator which can be used to simulate server interactions of a program. It is highly configurable as users can configure it to produce valid http responses for given set of requests.
 
 ## Files
 * `config_parse.py` - Parse the config.json file using the Config class. Also,
@@ -15,8 +15,8 @@ Simserve is a server simulator which can be used to simulate server interactions
 *This tool is written in **python 3.6***  
 Clone the repository.  
 ```
-git clone https://github.com/ujjwal96/simserve.git
-cd simserve
+git clone https://github.com/r00tdaemon/ServesUp.git
+cd servesup
 ```
 
 To install dependencies run -  
@@ -34,17 +34,17 @@ To configure the tool copy `conf.json.example` to `conf.json`.
     - `response_type` - How to generate the response. Can be "static" or "script"
     - `script` - Name of python module from which to generate the response. Used if `"response_type` is "script". User can provide either a default plugin(`customresp`), a relative path to python script or an absolute path to the script.
     
-To run - `simserve`  
+To run - `servesup`  
 By default it looks for config file in current working dir.
 To specify path to config file pass `-c` flag.  
-`simserve -c <path to conf.json>`
+`servesup -c <path to conf.json>`
      
 ### Plugins
 Users can create their own plugins which will allow them to generate dynamic responses based on the requests received.
 
 To create a plugin you need to import the base plugin class and override its abstract method.  
 ```python
-from simserve.plugins.base import Plugin
+from servesup.plugins.base import Plugin
 
 class MyResponse(Plugin):
     def response(self, request):

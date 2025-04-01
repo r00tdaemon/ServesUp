@@ -1,5 +1,5 @@
 from random import randint
-from simserve.plugins.base import Plugin
+from servesup.plugins.base import Plugin
 
 
 class MyResponse(Plugin):
