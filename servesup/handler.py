@@ -93,8 +93,8 @@ class CustomHandler(tornado.web.RequestHandler):
                 raise tornado.web.HTTPError(500)
 
             # Set content type based on file extension
-            content_type = self._get_file_content_type(file_path)
-            self.set_header("Content-Type", content_type)
+            # content_type = self._get_file_content_type(file_path)
+            # self.set_header("Content-Type", content_type)
 
             # Read and return file content
             return self._read_file_content(file_path)
