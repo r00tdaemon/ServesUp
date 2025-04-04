@@ -1,6 +1,7 @@
 import sys
 import json
 from servesup import handler
+from jsonschema import validate, ValidationError
 
 
 class ConfigValidationError(Exception):
@@ -11,6 +12,95 @@ class ConfigValidationError(Exception):
 class Config:
     # Valid response types
     VALID_RESPONSE_TYPES = ["file", "script", "static"]
+
+    # Valid HTTP methods
+    VALID_HTTP_METHODS = ["GET", "POST", "DELETE", "PUT", "PATCH", "HEAD", "OPTIONS"]
+
+    # JSON Schema for config validation
+    CONFIG_SCHEMA = {
+        "type": "object",
+        "required": ["port", "routes"],
+        "properties": {
+            "port": {
+                "type": "integer",
+                "minimum": 1
+            },
+            "routes": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["path", "handler_opts"],
+                    "properties": {
+                        "path": {
+                            "type": "string"
+                        },
+                        "handler_opts": {
+                            "type": "object",
+                            "required": ["responses"],
+                            "properties": {
+                                "responses": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "required": ["response_type", "methods"],
+                                        "properties": {
+                                            "response_type": {
+                                                "type": "string",
+                                                "enum": ["file", "script", "static"]
+                                            },
+                                            "methods": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "items": {
+                                                    "type": "string",
+                                                    "enum": ["GET", "POST", "DELETE", "PUT", "PATCH", "HEAD", "OPTIONS"]
+                                                }
+                                            },
+                                            "file_path": {
+                                                "type": "string"
+                                            },
+                                            "script": {
+                                                "type": "string"
+                                            },
+                                            "body": {
+                                                "type": "string"
+                                            },
+                                            "headers": {
+                                                "type": "object",
+                                                "additionalProperties": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        },
+                                        "oneOf": [
+                                            {
+                                                "properties": {
+                                                    "response_type": {"const": "file"}
+                                                },
+                                                "required": ["file_path"]
+                                            },
+                                            {
+                                                "properties": {
+                                                    "response_type": {"const": "script"}
+                                                },
+                                                "required": ["script"]
+                                            },
+                                            {
+                                                "properties": {
+                                                    "response_type": {"const": "static"}
+                                                },
+                                                "required": ["body"]
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     def __init__(self, file_path):
         self.config_file = file_path
@@ -41,77 +131,34 @@ class Config:
         ]
 
     def _validate_config(self):
-        """Validate the configuration JSON."""
-        # Check if required top-level keys exist
-        if "port" not in self._conf:
-            raise ConfigValidationError("Missing required key 'port' in config")
-        if "routes" not in self._conf:
-            raise ConfigValidationError("Missing required key 'routes' in config")
+        """Validate the configuration JSON using JSONSchema and additional checks."""
+        try:
+            # Basic schema validation
+            validate(instance=self._conf, schema=self.CONFIG_SCHEMA)
 
-        # Validate port is a positive integer
-        port = self._conf.get("port")
-        if not isinstance(port, int) or port <= 0:
-            raise ConfigValidationError("'port' must be a positive integer")
+            # Additional validation for unique paths
+            paths = [route.get("path") for route in self._conf.get("routes", [])]
+            duplicates = {path for path in paths if paths.count(path) > 1}
+            if duplicates:
+                raise ConfigValidationError(f"Duplicate paths found: {', '.join(duplicates)}")
 
-        # Validate routes is a list
-        routes = self._conf.get("routes")
-        if not isinstance(routes, list):
-            raise ConfigValidationError("'routes' must be a list")
+            # Validate that each HTTP method appears only once per path
+            for route in self._conf.get("routes", []):
+                path = route.get("path")
+                used_methods = set()
 
-        # Check for unique paths
-        paths = []
-        for route in routes:
-            if "path" not in route:
-                raise ConfigValidationError("Each route must have a 'path' key")
+                for response in route.get("handler_opts", {}).get("responses", []):
+                    methods = response.get("methods", [])
+                    for method in methods:
+                        if method in used_methods:
+                            raise ConfigValidationError(
+                                f"Duplicate HTTP method '{method}' found in path '{path}'. "
+                                f"Each HTTP method can only be used once per path."
+                            )
+                        used_methods.add(method)
 
-            path = route.get("path")
-            if path in paths:
-                raise ConfigValidationError(f"Duplicate path found: '{path}'")
-            paths.append(path)
-
-            # Validate handler_opts
-            if "handler_opts" not in route:
-                raise ConfigValidationError(f"Route '{path}' is missing 'handler_opts'")
-
-            handler_opts = route.get("handler_opts")
-            if "responses" not in handler_opts:
-                raise ConfigValidationError(f"Route '{path}' is missing 'responses' in handler_opts")
-
-            # Validate responses
-            responses = handler_opts.get("responses")
-            if not isinstance(responses, list):
-                raise ConfigValidationError(f"Route '{path}' has 'responses' that is not a list")
-
-            for i, response in enumerate(responses):
-                # Check response_type
-                if "response_type" not in response:
-                    raise ConfigValidationError(f"Route '{path}', response {i} is missing 'response_type'")
-
-                response_type = response.get("response_type")
-                if response_type not in self.VALID_RESPONSE_TYPES:
-                    raise ConfigValidationError(
-                        f"Route '{path}', response {i} has invalid 'response_type': '{response_type}'. "
-                        f"Must be one of: {', '.join(self.VALID_RESPONSE_TYPES)}"
-                    )
-
-                # Validate based on response_type
-                if response_type == "file":
-                    if "file_path" not in response:
-                        raise ConfigValidationError(f"Route '{path}', response {i} is missing 'file_path' for file response type")
-                elif response_type == "script":
-                    if "script" not in response:
-                        raise ConfigValidationError(f"Route '{path}', response {i} is missing 'script' for script response type")
-                elif response_type == "static":
-                    if "body" not in response:
-                        raise ConfigValidationError(f"Route '{path}', response {i} is missing 'body' for static response type")
-
-                # Check methods
-                if "methods" not in response:
-                    raise ConfigValidationError(f"Route '{path}', response {i} is missing 'methods'")
-
-                methods = response.get("methods")
-                if not isinstance(methods, list) or not methods:
-                    raise ConfigValidationError(f"Route '{path}', response {i} has 'methods' that is not a non-empty list")
+        except ValidationError as e:
+            raise ConfigValidationError(f"Config validation failed: {e.message}")
 
     def reload(self):
         """Reload the configuration from the config file."""

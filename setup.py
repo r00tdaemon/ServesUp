@@ -19,7 +19,8 @@ VERSION = '0.1.0'
 
 REQUIRED = [
     "tornado == 6.0.4",
-    "watchdog>=3.0.0"
+    "watchdog>=3.0.0, <4.0.0",
+    "jsonschema>=4.17.3, <4.18"
 ]
 
 # What packages are optional?
