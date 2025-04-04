@@ -10,20 +10,32 @@ import sys
 
 
 class ConfigFileHandler(FileSystemEventHandler):
-    def __init__(self, config_file, app, config):
+    def __init__(self, config_file, app, config, io_loop, server):
         self.config_file = config_file
         self.app = app
         self.config = config
+        self.server = server
+        self.io_loop = io_loop
+        self.last_mtime = os.path.getmtime(config_file)
 
     def on_modified(self, event):
         if event.src_path == self.config_file:
+            current_mtime = os.path.getmtime(self.config_file)
+            if current_mtime == self.last_mtime:
+                return
+            self.last_mtime = current_mtime
+
             tornado.log.access_log.info(f"Config file {self.config_file} changed. Restarting server...")
-            # Stop the current server
-            tornado.ioloop.IOLoop.current().stop()
-            # Reload the config
-            self.config.reload()
-            # Restart the server
-            tornado.ioloop.IOLoop.current().start()
+            self.io_loop.add_callback(self._restart_server)
+
+    def _restart_server(self):
+        if self.server:
+            self.server.stop()
+
+        self.config.reload()
+
+        self.app = make_app(self.config.handlers)
+        self.server = self.app.listen(self.config.port)
 
 
 def make_app(handlers):
@@ -33,20 +45,20 @@ def make_app(handlers):
 
 def start_server(config):
     app = make_app(config.handlers)
-    app.listen(config.port)
+    server = app.listen(config.port)
+    io_loop = tornado.ioloop.IOLoop.instance()
 
     # Set up config file monitoring
     observer = Observer()
-    event_handler = ConfigFileHandler(config.config_file, app, config)
+    event_handler = ConfigFileHandler(config.config_file, app, config, io_loop, server)
     observer.schedule(event_handler, path=os.path.dirname(config.config_file), recursive=False)
     observer.start()
 
     try:
-        tornado.ioloop.IOLoop.current().start()
-    except KeyboardInterrupt:
+        io_loop.start()
+    finally:
         observer.stop()
-        tornado.ioloop.IOLoop.current().stop()
-    observer.join()
+        observer.join()
 
 
 def main():
