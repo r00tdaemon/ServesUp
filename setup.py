@@ -15,7 +15,7 @@ URL = 'https://github.com/r00tdaemon/ServesUp'
 EMAIL = 'ujjwalverma1111@gmail.com'
 AUTHOR = 'Ujjwal Verma'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = '0.1.0'
+VERSION = '0.2.0'
 
 REQUIRED = [
     "tornado == 6.0.4",
