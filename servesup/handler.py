@@ -3,6 +3,7 @@ import sys
 import inspect
 import importlib
 import importlib.util
+import mimetypes
 from typing import (
     Dict,
     Union,
@@ -12,7 +13,7 @@ import tornado.web
 from tornado import httputil
 from tornado.log import access_log
 
-from simserve.plugins.base import Plugin
+from servesup.plugins.base import Plugin
 
 
 class CustomHandler(tornado.web.RequestHandler):
@@ -27,12 +28,12 @@ class CustomHandler(tornado.web.RequestHandler):
 
     @staticmethod
     def _load_script(path: str):
-        if importlib.util.find_spec(f"simserve.plugins.{os.path.splitext(os.path.basename(path))[0]}"):
-            return importlib.import_module(f"simserve.plugins.{path}")
+        if importlib.util.find_spec(f"servesup.plugins.{os.path.splitext(os.path.basename(path))[0]}"):
+            return importlib.import_module(f"servesup.plugins.{path}")
         elif os.path.isfile(f"{os.getcwd()}/{path}.py") or os.path.isfile(f"{os.getcwd()}/{path}"):
             path = f"{os.getcwd()}/{path}"
             path = f"{path}.py" if os.path.isfile(f"{path}.py") else f"{path}"
-            module_name = f"__simserve_plugin__.{os.path.splitext(os.path.basename(path))[0]}"
+            module_name = f"__servesup_plugin__.{os.path.splitext(os.path.basename(path))[0]}"
             try:
                 spec = importlib.util.spec_from_file_location(module_name, path)
                 module = importlib.util.module_from_spec(spec)
@@ -43,7 +44,7 @@ class CustomHandler(tornado.web.RequestHandler):
                 raise tornado.web.HTTPError(500)
             return module
         elif os.path.isfile(path):
-            module_name = f"__simserve_plugin__.{os.path.splitext(os.path.basename(path))[0]}"
+            module_name = f"__servesup_plugin__.{os.path.splitext(os.path.basename(path))[0]}"
             try:
                 spec = importlib.util.spec_from_file_location(module_name, path)
                 module = importlib.util.module_from_spec(spec)
@@ -57,16 +58,46 @@ class CustomHandler(tornado.web.RequestHandler):
             access_log.error("Couldn't find plugin to load.")
             raise tornado.web.HTTPError(500)
 
+    def _get_file_content_type(self, file_path: str) -> str:
+        """Determine the content type of a file based on its extension."""
+        content_type, _ = mimetypes.guess_type(file_path)
+        if content_type is None:
+            # Default to application/octet-stream if type cannot be determined
+            content_type = 'application/octet-stream'
+        return content_type
+
+    def _read_file_content(self, file_path: str) -> bytes:
+        """Read file content in binary mode."""
+        try:
+            with open(file_path, 'rb') as f:
+                return f.read()
+        except Exception as e:
+            access_log.error(f"Could not read file {file_path}. {e}")
+            raise tornado.web.HTTPError(500)
+
     def _get_resp_body(self, resp: Dict):
-        if resp.get("response_type") == "script":
+        response_type = resp.get("response_type")
+        if response_type == "script":
             plug_module = self._load_script(resp.get('script'))
             _, plug = inspect.getmembers(
                 plug_module,
                 lambda x: inspect.isclass(x) and not inspect.isabstract(x) and issubclass(x, Plugin)
             )[0]
             return plug().response(self.request)
-        elif resp.get("response_type") == "static":
+        elif response_type == "static":
             return resp.get("body")
+        elif response_type == "file":
+            file_path = resp.get("file_path")
+            if not file_path:
+                access_log.error("No file_path specified for file response type")
+                raise tornado.web.HTTPError(500)
+
+            # Set content type based on file extension
+            # content_type = self._get_file_content_type(file_path)
+            # self.set_header("Content-Type", content_type)
+
+            # Read and return file content
+            return self._read_file_content(file_path)
 
     @staticmethod
     def _format_request(req: httputil.HTTPServerRequest) -> str:

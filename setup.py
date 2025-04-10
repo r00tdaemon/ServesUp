@@ -9,16 +9,18 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'Simserve'
-DESCRIPTION = 'Simserve is a server simulator which can be used to simulate server interactions of a program.'
-URL = 'https://github.com/ujjwal96/simserve'
+NAME = 'ServesUp'
+DESCRIPTION = 'ServesUp is a server simulator which can be used to simulate server interactions of a program.'
+URL = 'https://github.com/r00tdaemon/ServesUp'
 EMAIL = 'ujjwalverma1111@gmail.com'
 AUTHOR = 'Ujjwal Verma'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = '0.1.0'
+VERSION = '0.2.0'
 
 REQUIRED = [
-    "tornado == 6.0.4"
+    "tornado == 6.0.4",
+    "watchdog>=3.0.0, <4.0.0",
+    "jsonschema>=4.17.3, <4.18"
 ]
 
 # What packages are optional?
@@ -97,9 +99,9 @@ setup(
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     # If your package is a single module, use this instead of 'packages':
     # py_modules=['mypackage'],
-    data_files=[('simserve_example_config', ['conf.json.example'])],
+    data_files=[('servesup_example_config', ['conf.json.example'])],
     entry_points={
-        'console_scripts': ['simserve=simserve.server:main'],
+        'console_scripts': ['servesup=servesup.server:main'],
     },
     install_requires=REQUIRED,
     extras_require=EXTRAS,
