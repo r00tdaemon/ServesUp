@@ -7,6 +7,7 @@ from servesup import handler, config_parse
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import sys
+import asyncio
 
 
 class ConfigFileHandler(FileSystemEventHandler):
@@ -43,6 +44,29 @@ def make_app(handlers):
     return tornado.web.Application(handlers, default_handler_class=handler.Custom404Handler)
 
 
+async def shutdown(io_loop, server, observer):
+    """Clean shutdown of the server."""
+    if server:
+        server.stop()
+
+    # Stop the observer
+    observer.stop()
+    observer.join()
+
+    # Cancel all running tasks
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+
+    # Wait for all tasks to complete
+    if tasks:
+        tornado.log.access_log.info(f"Cancelling {len(tasks)} pending tasks...")
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Stop the IOLoop
+    io_loop.stop()
+
+
 def start_server(config):
     app = make_app(config.handlers)
     server = app.listen(config.port)
@@ -56,9 +80,14 @@ def start_server(config):
 
     try:
         io_loop.start()
+    except KeyboardInterrupt:
+        tornado.log.access_log.info("Received keyboard interrupt, shutting down server...")
     finally:
-        observer.stop()
-        observer.join()
+        # Run the shutdown coroutine
+        io_loop.run_sync(lambda: shutdown(io_loop, server, observer))
+        io_loop.close()
+
+    sys.exit(0)
 
 
 def main():
